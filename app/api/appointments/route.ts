@@ -12,12 +12,19 @@ export async function GET(request: NextRequest){
         const {searchParams} = request.nextUrl
 
         const dateParam = searchParams.get("date")
+        const startDate = searchParams.get("startDate")
+        const endDate = searchParams.get("endDate")
 
         let where : any = {}
 
         if(dateParam) {
             const targetDate = new Date(dateParam)
             where.date = targetDate
+        } else if (startDate && endDate) {
+            where.date = {
+                gte: new Date(startDate),
+                lte : new Date(endDate)
+            }
         }
 
        const appointments = await prisma.appointment.findMany({
