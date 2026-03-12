@@ -25,7 +25,7 @@ interface Appointment {
 }
 
 interface Props {
-    appointment: Appointment
+    appointment: Appointment | null,
     onClose: () => void
 }
 
