@@ -30,6 +30,15 @@ export async function proxy(request: NextRequest) {
     return NextResponse.redirect(new URL("/login", request.url))
   }
 
+  const restrictedPaths = ["/appointments", "/workers"]
+  const isRestricted = restrictedPaths.some((p) =>
+    request.nextUrl.pathname.startsWith(p)
+  )
+
+  if (isRestricted && user?.email !== "info@ratutaskas.lt") {
+    return NextResponse.redirect(new URL("/calendar", request.url))
+  }
+
   return supabaseResponse
 }
 

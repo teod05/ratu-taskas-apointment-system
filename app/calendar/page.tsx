@@ -2,6 +2,7 @@
 
 import { useEffect, useState, useCallback } from "react"
 import { getWeekDays, getWeekStart, toDateString, timeToMinutes } from "@/lib/calendarUtils"
+import { createClient } from "@/lib/supabase/client"
 
 import Navbar from "@/components/Navbar"
 import AppointmentBlock from "@/components/AppointmentBlock"
@@ -100,6 +101,21 @@ export default function CalendarPage() {
 
   useEffect(() => {
     fetchAppointments()
+  }, [fetchAppointments])
+
+  useEffect(() => {
+    const supabase = createClient()
+
+    const channel = supabase
+      .channel("appointments-realtime")
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "appointments" },
+        () => fetchAppointments()
+      )
+      .subscribe()
+
+    return () => { supabase.removeChannel(channel) }
   }, [fetchAppointments])
 
   function appointmentsForDay(day: Date): Appointment[] {
