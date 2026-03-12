@@ -3,27 +3,29 @@
 import { useEffect, useState, useCallback } from "react"
 import { getWeekDays, getWeekStart, toDateString, timeToMinutes } from "@/lib/calendarUtils"
 
+import Navbar from "@/components/Navbar"
 import AppointmentBlock from "@/components/AppointmentBlock"
 import AppointmentDetailModal from "@/components/AppointmentDetailModal"
 
 interface Worker {
-    id: number,
-    name: string;
+  id: number
+  name: string
 }
 
 interface AppointmentWorker {
-    worker_id: number,
-    worker: Worker
+  worker_id: number
+  worker: Worker
 }
+
 interface Appointment {
-    id: string,
-    customer_name : string,
-    customer_phone: string | null,
-    description: string,
-    date: string,
-    start_time: string,
-    duration: number,
-    workers: AppointmentWorker[]
+  id: string
+  customer_name: string
+  customer_phone: string | null
+  description: string
+  date: string
+  start_time: string
+  duration: number
+  workers: AppointmentWorker[]
 }
 
 const HOUR_START = 7
@@ -32,235 +34,250 @@ const TOTAL_HOURS = HOUR_END - HOUR_START
 const PX_PER_HOUR = 80
 const TOTAL_HEIGHT = TOTAL_HOURS * PX_PER_HOUR
 
-const DAY_LABELS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
-
+const DAY_LABELS = ["Pr", "An", "Tr", "Kt", "Pn", "Št", "Sk"]
 
 function minutesToTop(minutes: number): number {
-  const offsetMins = minutes - HOUR_START * 60;
-  return (offsetMins / 60) * PX_PER_HOUR;
+  const offsetMins = minutes - HOUR_START * 60
+  return (offsetMins / 60) * PX_PER_HOUR
 }
 
 function durationToHeight(duration: number): number {
-    return (duration / 60) * PX_PER_HOUR
+  return (duration / 60) * PX_PER_HOUR
+}
+
+function layoutAppointments(appts: Appointment[]) {
+  const sorted = [...appts].sort(
+    (a, b) => timeToMinutes(a.start_time) - timeToMinutes(b.start_time)
+  )
+
+  type Item = { appt: Appointment; col: number; startMin: number; endMin: number }
+  const items: Item[] = []
+  const colEnds: number[] = []
+
+  for (const appt of sorted) {
+    const startMin = timeToMinutes(appt.start_time)
+    const endMin = startMin + appt.duration
+
+    let col = colEnds.findIndex((end) => end <= startMin)
+    if (col === -1) { col = colEnds.length; colEnds.push(endMin) }
+    else colEnds[col] = endMin
+
+    items.push({ appt, col, startMin, endMin })
+  }
+
+  return items.map((item) => {
+    const concurrent = items.filter(
+      (o) => item.startMin < o.endMin && item.endMin > o.startMin
+    )
+    const totalCols = Math.max(...concurrent.map((c) => c.col)) + 1
+    return { appt: item.appt, col: item.col, totalCols }
+  })
 }
 
 export default function CalendarPage() {
-  const [weekStart, setWeekStart] = useState<Date>(() =>
-    getWeekStart(new Date())
-  )
+  const [weekStart, setWeekStart] = useState<Date>(() => getWeekStart(new Date()))
+  const [appointments, setAppointments] = useState<Appointment[]>([])
+  const [loading, setLoading] = useState(false)
+  const [selected, setSelected] = useState<Appointment | null>(null)
 
-const [appointments, setAppointments] = useState<Appointment[]>([])
-const [loading, setLoading] = useState(false)
-const [selected, setSelected] = useState<Appointment | null>(null);
-  
+  const weekDays = getWeekDays(weekStart)
+  const weekEnd = weekDays[6]
 
-const weekDays = getWeekDays(weekStart)
-const weekEnd = weekDays[6]
-
-
-const fetchAppointments = useCallback(async () => {
+  const fetchAppointments = useCallback(async () => {
     setLoading(true)
-    try{
-        const params = new URLSearchParams({
-            startDate: toDateString(weekStart),
-            endDate: toDateString(weekEnd)
-        })
-        const res = await fetch(`/api/appointments?${params}`)
-        const data: Appointment[] = await res.json()
-        setAppointments(data)
+    try {
+      const params = new URLSearchParams({
+        startDate: toDateString(weekStart),
+        endDate: toDateString(weekEnd),
+      })
+      const res = await fetch(`/api/appointments?${params}`)
+      const data: Appointment[] = await res.json()
+      setAppointments(data)
     } finally {
-        setLoading(false)
+      setLoading(false)
     }
-}, [weekStart])
+  }, [weekStart])
 
-useEffect(()=> {
+  useEffect(() => {
     fetchAppointments()
-}, [fetchAppointments])
+  }, [fetchAppointments])
 
   function appointmentsForDay(day: Date): Appointment[] {
-    const key = toDateString(day);
-    return appointments.filter((a) => {
-      return a.date.startsWith(key);
-    });
+    const key = toDateString(day)
+    return appointments.filter((a) => a.date.startsWith(key))
   }
 
   function shiftWeek(delta: number) {
     setWeekStart((prev) => {
-      const d = new Date(prev);
-      d.setDate(d.getDate() + delta * 7);
-      return d;
-    });
+      const d = new Date(prev)
+      d.setDate(d.getDate() + delta * 7)
+      return d
+    })
   }
 
-function goToToday(){
+  function goToToday() {
     setWeekStart(getWeekStart(new Date()))
-}
-
-function apoointmentsForDAy(day: Date): Appointment[]{
-    const key = toDateString(day)
-    return appointments.filter((a) => {
-        return a.date.startsWith(key)
-    })
-}
+  }
 
   const hourLabels = Array.from({ length: TOTAL_HOURS + 1 }, (_, i) => {
-    const h = HOUR_START + i;
-    return `${String(h).padStart(2, "0")}:00`;
-  });
-const rangeLabel = `${weekStart.toLocaleDateString("en-GB", {
+    const h = HOUR_START + i
+    return `${String(h).padStart(2, "0")}:00`
+  })
+
+  const rangeLabel = `${weekStart.toLocaleDateString("lt-LT", {
     day: "numeric",
-    month: "short"
-})} - ${weekEnd.toLocaleDateString("en-GB", {
+    month: "short",
+  })} – ${weekEnd.toLocaleDateString("lt-LT", {
     day: "numeric",
-    month : "short",
-    year: "numeric"
-})}`
+    month: "short",
+    year: "numeric",
+  })}`
 
   return (
-    <div className="min-h-screen bg-gray-50 p-4">
-      {/* ── Header ── */}
-      <div className="flex items-center justify-between mb-4 flex-wrap gap-2">
-        <h1 className="text-2xl font-bold text-gray-800">📅 Weekly Calendar</h1>
+    <div className="min-h-screen bg-brand-gray">
+      <Navbar />
 
-        <div className="flex items-center gap-2">
-          <button
-            onClick={() => shiftWeek(-1)}
-            className="px-3 py-1.5 bg-white border rounded-lg shadow-sm hover:bg-gray-100 text-sm font-medium"
-          >
-            ← Prev
-          </button>
-          <button
-            onClick={goToToday}
-            className="px-3 py-1.5 bg-blue-600 text-white rounded-lg shadow-sm hover:bg-blue-700 text-sm font-medium"
-          >
-            Today
-          </button>
-          <button
-            onClick={() => shiftWeek(1)}
-            className="px-3 py-1.5 bg-white border rounded-lg shadow-sm hover:bg-gray-100 text-sm font-medium"
-          >
-            Next →
-          </button>
-        </div>
-
-        <p className="text-gray-600 font-medium text-sm w-full sm:w-auto text-center">
-          {rangeLabel}
-        </p>
-      </div>
-
-      {loading && (
-        <p className="text-center text-gray-500 py-4">Loading appointments…</p>
-      )}
-
-      {/* ── Calendar Grid ── */}
-      <div className="bg-white rounded-xl shadow overflow-auto">
-        {/* Day header row */}
-        <div className="grid grid-cols-[60px_repeat(7,1fr)] border-b sticky top-0 bg-white z-10">
-          <div className="border-r" /> {/* time gutter */}
-          {weekDays.map((day, i) => {
-            const isToday = toDateString(day) === toDateString(new Date());
-            return (
-              <div
-                key={i}
-                className={`text-center py-2 text-sm font-semibold border-r last:border-r-0 ${
-                  isToday ? "bg-blue-50 text-blue-700" : "text-gray-700"
-                }`}
-              >
-                <div>{DAY_LABELS[i]}</div>
-                <div
-                  className={`text-lg font-bold ${
-                    isToday
-                      ? "bg-blue-600 text-white rounded-full w-8 h-8 flex items-center justify-center mx-auto"
-                      : ""
-                  }`}
-                >
-                  {day.getDate()}
-                </div>
-              </div>
-            );
-          })}
-        </div>
-
-        {/* Time grid body */}
-        <div
-          className="grid grid-cols-[60px_repeat(7,1fr)]"
-          style={{ height: TOTAL_HEIGHT }}
-        >
-          {/* Hour labels column */}
-          <div className="relative border-r">
-            {hourLabels.map((label, i) => (
-              <div
-                key={label}
-                className="absolute w-full text-right pr-2 text-xs text-gray-400"
-                style={{ top: i * PX_PER_HOUR - 8 }}
-              >
-                {label}
-              </div>
-            ))}
+      <main className="px-4 py-6 max-w-full">
+        {/* Header */}
+        <div className="flex items-center justify-between mb-5 flex-wrap gap-3">
+          <div>
+            <h1 className="text-2xl font-black text-brand-black">Savaitės kalendorius</h1>
+            <p className="text-sm text-gray-500 mt-0.5">{rangeLabel}</p>
           </div>
 
-          {/* Day columns */}
-          {weekDays.map((day, di) => {
-            const dayAppts = appointmentsForDay(day);
-            return (
-              <div
-                key={di}
-                className="relative border-r last:border-r-0"
-                style={{ height: TOTAL_HEIGHT }}
-              >
-                {/* Hour lines */}
-                {hourLabels.map((_, i) => (
-                  <div
-                    key={i}
-                    className="absolute w-full border-t border-gray-100"
-                    style={{ top: i * PX_PER_HOUR }}
-                  />
-                ))}
-
-                {/* Half-hour lines */}
-                {hourLabels.slice(0, -1).map((_, i) => (
-                  <div
-                    key={`half-${i}`}
-                    className="absolute w-full border-t border-gray-50"
-                    style={{ top: i * PX_PER_HOUR + PX_PER_HOUR / 2 }}
-                  />
-                ))}
-
-                {/* Appointment blocks */}
-                {dayAppts.map((appt) => {
-                  const startMins = timeToMinutes(appt.start_time);
-                  const top = minutesToTop(startMins);
-                  const height = durationToHeight(appt.duration);
-
-                  // Skip if outside visible range
-                  if (
-                    startMins < HOUR_START * 60 ||
-                    startMins >= HOUR_END * 60
-                  ) {
-                    return null;
-                  }
-
-                  return (
-                    <AppointmentBlock
-                      key={appt.id}
-                      appointment={appt}
-                      topOffset={top}
-                      height={height}
-                      onClick={setSelected}
-                    />
-                  );
-                })}
-              </div>
-            );
-          })}
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => shiftWeek(-1)}
+              className="px-4 py-2 bg-white border border-gray-200 rounded-lg shadow-sm hover:bg-gray-50 text-sm font-semibold text-brand-black transition-colors duration-150"
+            >
+              ← Ankst.
+            </button>
+            <button
+              onClick={goToToday}
+              className="px-4 py-2 bg-primary hover:bg-primary-dark text-white rounded-lg shadow-sm text-sm font-bold transition-colors duration-150"
+            >
+              Šiandien
+            </button>
+            <button
+              onClick={() => shiftWeek(1)}
+              className="px-4 py-2 bg-white border border-gray-200 rounded-lg shadow-sm hover:bg-gray-50 text-sm font-semibold text-brand-black transition-colors duration-150"
+            >
+              Sek. →
+            </button>
+          </div>
         </div>
-      </div>
 
-      {/* ── Detail Modal ── */}
-      <AppointmentDetailModal
-        appointment={selected}
-        onClose={() => setSelected(null)}
-      />
+        {loading && (
+          <p className="text-center text-gray-400 text-sm py-2 mb-3">Kraunama...</p>
+        )}
+
+        {/* Calendar grid */}
+        <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-auto">
+          {/* Day header */}
+          <div className="grid grid-cols-[56px_repeat(7,1fr)] border-b border-gray-100 sticky top-0 bg-white z-10">
+            <div className="border-r border-gray-100" />
+            {weekDays.map((day, i) => {
+              const isToday = toDateString(day) === toDateString(new Date())
+              return (
+                <div
+                  key={i}
+                  className={`text-center py-3 text-xs font-bold border-r border-gray-100 last:border-r-0 uppercase tracking-wide ${
+                    isToday ? "text-primary" : "text-gray-400"
+                  }`}
+                >
+                  <div>{DAY_LABELS[i]}</div>
+                  <div
+                    className={`text-lg font-black mt-0.5 mx-auto w-8 h-8 flex items-center justify-center rounded-full ${
+                      isToday ? "bg-primary text-white" : "text-brand-black"
+                    }`}
+                  >
+                    {day.getDate()}
+                  </div>
+                </div>
+              )
+            })}
+          </div>
+
+          {/* Time grid */}
+          <div
+            className="grid grid-cols-[56px_repeat(7,1fr)]"
+            style={{ height: TOTAL_HEIGHT }}
+          >
+            {/* Hour labels */}
+            <div className="relative border-r border-gray-100">
+              {hourLabels.map((label, i) => (
+                <div
+                  key={label}
+                  className="absolute w-full text-right pr-2 text-[10px] text-gray-300 font-medium"
+                  style={{ top: i * PX_PER_HOUR - 7 }}
+                >
+                  {label}
+                </div>
+              ))}
+            </div>
+
+            {/* Day columns */}
+            {weekDays.map((day, di) => {
+              const dayAppts = appointmentsForDay(day)
+              const isToday = toDateString(day) === toDateString(new Date())
+              return (
+                <div
+                  key={di}
+                  className={`relative border-r border-gray-100 last:border-r-0 ${
+                    isToday ? "bg-red-50/30" : ""
+                  }`}
+                  style={{ height: TOTAL_HEIGHT }}
+                >
+                  {/* Hour lines */}
+                  {hourLabels.map((_, i) => (
+                    <div
+                      key={i}
+                      className="absolute w-full border-t border-gray-100"
+                      style={{ top: i * PX_PER_HOUR }}
+                    />
+                  ))}
+
+                  {/* Half-hour lines */}
+                  {hourLabels.slice(0, -1).map((_, i) => (
+                    <div
+                      key={`half-${i}`}
+                      className="absolute w-full border-t border-gray-50"
+                      style={{ top: i * PX_PER_HOUR + PX_PER_HOUR / 2 }}
+                    />
+                  ))}
+
+                  {/* Appointment blocks */}
+                  {layoutAppointments(dayAppts).map(({ appt, col, totalCols }) => {
+                    const startMins = timeToMinutes(appt.start_time)
+                    const top = minutesToTop(startMins)
+                    const height = durationToHeight(appt.duration)
+
+                    if (startMins < HOUR_START * 60 || startMins >= HOUR_END * 60) return null
+
+                    return (
+                      <AppointmentBlock
+                        key={appt.id}
+                        appointment={appt}
+                        topOffset={top}
+                        height={height}
+                        col={col}
+                        totalCols={totalCols}
+                        onClick={setSelected}
+                      />
+                    )
+                  })}
+                </div>
+              )
+            })}
+          </div>
+        </div>
+
+        {/* Detail modal */}
+        <AppointmentDetailModal
+          appointment={selected}
+          onClose={() => setSelected(null)}
+        />
+      </main>
     </div>
-  );
+  )
 }

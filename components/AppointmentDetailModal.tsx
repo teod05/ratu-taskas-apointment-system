@@ -1,95 +1,97 @@
+"use client"
 
-"use cilent"
 import { timeToMinutes, minutesToLabel } from "@/lib/calendarUtils"
 
-
 interface Worker {
-    id: number,
-    name: string;
+  id: number
+  name: string
 }
 
 interface AppointmentWorker {
-    worker_id: number,
-    worker: Worker
+  worker_id: number
+  worker: Worker
 }
 
 interface Appointment {
-    id: string,
-    customer_name : string,
-    customer_phone: string | null,
-    description: string,
-    date: string,
-    start_time: string,
-    duration: number,
-    workers: AppointmentWorker[]
+  id: string
+  customer_name: string
+  customer_phone: string | null
+  description: string
+  date: string
+  start_time: string
+  duration: number
+  workers: AppointmentWorker[]
 }
 
 interface Props {
-    appointment: Appointment | null,
-    onClose: () => void
+  appointment: Appointment | null
+  onClose: () => void
 }
 
-export default function AppointmentDetailModal({appointment, onClose} : Props){
+export default function AppointmentDetailModal({ appointment, onClose }: Props) {
+  if (!appointment) return null
 
-    if(!appointment) return null
+  const startMins = timeToMinutes(appointment.start_time)
+  const endMins = startMins + appointment.duration
+  const workerNames = appointment.workers.map((w) => w.worker.name).join(", ")
 
-    const startMins = timeToMinutes(appointment.start_time)
-    const endMins = startMins + appointment.duration
-    const workerNames = appointment.workers.map((w) => w.worker.name).join(',')
+  const rows: { label: string; value: string | null }[] = [
+    { label: "Klientas", value: appointment.customer_name },
+    { label: "Telefonas", value: appointment.customer_phone },
+    { label: "Aprašymas", value: appointment.description },
+    {
+      label: "Laikas",
+      value: `${minutesToLabel(startMins)} – ${minutesToLabel(endMins)} (${appointment.duration} min)`,
+    },
+    { label: "Darbuotojai", value: workerNames || null },
+  ]
 
-    return (
+  return (
+    <div
+      className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 px-4"
+      onClick={onClose}
+    >
+      <div
+        className="bg-white rounded-2xl shadow-2xl w-full max-w-md overflow-hidden"
+        onClick={(e) => e.stopPropagation()}
+      >
+        {/* Red top bar */}
+        <div className="h-1.5 bg-primary" />
 
-        <div
-            className="fixed inset-0 bg-black/50 flex items-center justify-center z-50"
-            onClick={onClose}
-        >
-
-            <div
-            className="bg-white rounded-xl shadow-xl p-6"
-            onClick={(e) => e.stopPropagation()}
+        <div className="p-6">
+          <div className="flex items-start justify-between mb-5">
+            <h2 className="text-lg font-black text-brand-black">Vizito informacija</h2>
+            <button
+              onClick={onClose}
+              className="text-gray-300 hover:text-gray-500 transition-colors duration-150 text-xl leading-none"
+              aria-label="Uždaryti"
             >
-                <h2 className="text-xl font-bold mb-4"> Appointment Details</h2>
+              &times;
+            </button>
+          </div>
 
-                <dl className="">
-                    <div className=" flex gap-2">
-                        <dt className="font-semibold w-32 shrink-0">Customer:</dt>
-                        <dd>{appointment.customer_name}</dd>
-                    </div>
-                    {appointment.customer_phone && (
-                        <div className="flex gap-2">
-                            <dt className="font-semibold w-32 shrink-0">Phone:</dt>
-                            <dd>{appointment.customer_phone}</dd>
-                        </div>
-                    )}
-                    <div className="flex gap-2">
-                        <dt className="font-semibold w-32 shrink-0">Description:</dt>
-                        <dd>{appointment.description}</dd>
-                    </div>
+          <dl className="space-y-3">
+            {rows.map(
+              ({ label, value }) =>
+                value && (
+                  <div key={label} className="flex gap-3">
+                    <dt className="text-xs font-semibold text-gray-400 uppercase tracking-wide w-28 shrink-0 pt-0.5">
+                      {label}
+                    </dt>
+                    <dd className="text-sm font-medium text-brand-black">{value}</dd>
+                  </div>
+                )
+            )}
+          </dl>
 
-                    <div className="flex gap-2">
-                        <dt className="font-semibold w-32 shrink-0">Time:</dt>
-                        <dd>
-                            {minutesToLabel(startMins)} - {minutesToLabel(endMins)} ({appointment.duration} min)
-                        </dd>
-                    </div>
-                    {workerNames && (
-                        <div className="flex gap-2">
-                            <dt className="font-semibold w-32 shrink-0">Workers:</dt>
-                            <dd>{workerNames}</dd>
-                        </div>
-                    )}
-                </dl>
-
-                <button 
-                className="mt-6 w-full bg-gray-200 hover:bg-gray-300 rounded-lg py-2 font-medium"
-                onClick={onClose}
-                >
-                    Close
-                </button>
-
-            </div>
-
-
+          <button
+            className="mt-6 w-full bg-brand-gray hover:bg-gray-200 text-brand-black rounded-xl py-2.5 text-sm font-bold transition-colors duration-150"
+            onClick={onClose}
+          >
+            Uždaryti
+          </button>
         </div>
-    )
+      </div>
+    </div>
+  )
 }

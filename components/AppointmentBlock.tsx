@@ -1,58 +1,69 @@
-
 "use client"
 
-import { timeToMinutes, minutesToLabel } from "@/lib/calendarUtils";
+import { timeToMinutes, minutesToLabel } from "@/lib/calendarUtils"
 
 interface Worker {
-    id: number,
-    name: string;
+  id: number
+  name: string
 }
 
 interface AppointmentWorker {
-    worker_id: number,
-    worker: Worker
+  worker_id: number
+  worker: Worker
 }
 
 interface Appointment {
-    id: string,
-    customer_name : string,
-    customer_phone: string | null,
-    description: string,
-    date: string,
-    start_time: string,
-    duration: number,
-    workers: AppointmentWorker[]
+  id: string
+  customer_name: string
+  customer_phone: string | null
+  description: string
+  date: string
+  start_time: string
+  duration: number
+  workers: AppointmentWorker[]
 }
 
 interface Props {
-    appointment: Appointment
-    topOffset: number
-    height: number
-    onClick: (a : Appointment) => void
+  appointment: Appointment
+  topOffset: number
+  height: number
+  col: number
+  totalCols: number
+  onClick: (a: Appointment) => void
 }
 
 export default function AppointmentBlock({
-    appointment,
-    topOffset,
-    height,
-    onClick,
+  appointment,
+  topOffset,
+  height,
+  col,
+  totalCols,
+  onClick,
 }: Props) {
-    const startMins = timeToMinutes(appointment.start_time)
-    const endMins = startMins + appointment.duration
-    const workerNames = appointment.workers.map((w) => w.worker.id).join(", ")
+  const startMins = timeToMinutes(appointment.start_time)
+  const endMins = startMins + appointment.duration
+  const workerNames = appointment.workers.map((w) => w.worker.name).join(", ")
+
+  const widthPct = 100 / totalCols
+  const leftPct = col * widthPct
 
   return (
     <div
-      className="absolute left-1 right-1 bg-blue-500 text-white rounded-md px-2 py-1 text-xs cursor-pointer hover:bg-blue-600 overflow-hidden shadow"
-      style={{ top: topOffset, height: Math.max(height, 24) }}
+      className="absolute bg-primary hover:bg-primary-dark text-white rounded-lg px-2 py-1 text-xs cursor-pointer overflow-hidden shadow-sm transition-colors duration-150"
+      style={{
+        top: topOffset,
+        height: Math.max(height, 24),
+        left: `calc(${leftPct}% + 2px)`,
+        width: `calc(${widthPct}% - 4px)`,
+      }}
       onClick={() => onClick(appointment)}
-      title={`${appointment.customer_name} — ${minutesToLabel(startMins)} to ${minutesToLabel(endMins)}`}
+      title={`${appointment.customer_name} — ${minutesToLabel(startMins)} iki ${minutesToLabel(endMins)}`}
     >
-      <p className="font-semibold truncate">{appointment.customer_name}</p>
-      <p className="truncate opacity-90">{appointment.description}</p>
+      <p className="font-bold truncate leading-tight">{appointment.customer_name}</p>
+      <p className="truncate opacity-80 leading-tight">{appointment.description}</p>
       {workerNames && (
-        <p className="truncate opacity-75">👷 {workerNames}</p>
+        <p className="truncate opacity-60 leading-tight">{workerNames}</p>
       )}
     </div>
-  );
+  )
 }
