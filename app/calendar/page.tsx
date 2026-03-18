@@ -110,7 +110,7 @@ export default function CalendarPage() {
       .channel("appointments-realtime")
       .on(
         "postgres_changes",
-        { event: "*", schema: "public", table: "appointments" },
+        { event: "*", schema: "public", table: "Appointment" },
         () => fetchAppointments()
       )
       .subscribe()
