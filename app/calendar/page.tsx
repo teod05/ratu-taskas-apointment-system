@@ -92,8 +92,9 @@ export default function CalendarPage() {
         endDate: toDateString(weekEnd),
       })
       const res = await fetch(`/api/appointments?${params}`)
-      const data: Appointment[] = await res.json()
-      setAppointments(data)
+      if (!res.ok) { setAppointments([]); return }
+      const data = await res.json()
+      setAppointments(Array.isArray(data) ? data : [])
     } finally {
       setLoading(false)
     }
