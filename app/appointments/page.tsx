@@ -29,6 +29,7 @@ export default function AppointmentsPage() {
   const [workers, setWorkers] = useState<Worker[]>([])
   const [loading, setLoading] = useState(true)
 
+  const [editingId, setEditingId] = useState<string | null>(null)
   const [customerName, setCustomerName] = useState("")
   const [customerPhone, setCustomerPhone] = useState("")
   const [description, setDescription] = useState("")
@@ -60,39 +61,65 @@ export default function AppointmentsPage() {
     fetchData()
   }, [])
 
+  function resetForm() {
+    setEditingId(null)
+    setCustomerName("")
+    setCustomerPhone("")
+    setDescription("")
+    setDate("")
+    setStartTime("")
+    setDuration(0)
+    setSelectedWorkerIds([])
+  }
+
+  function handleEdit(appt: Appointment) {
+    setEditingId(appt.id)
+    setCustomerName(appt.customer_name)
+    setCustomerPhone(appt.customer_phone || "")
+    setDescription(appt.description)
+    setDate(new Date(appt.date).toISOString().split("T")[0])
+    const d = new Date(appt.start_time)
+    setStartTime(d.toLocaleTimeString("lt-LT", { hour: "2-digit", minute: "2-digit", hour12: false }))
+    setDuration(appt.duration)
+    setSelectedWorkerIds(appt.workers.map((w) => w.worker_id))
+    window.scrollTo({ top: 0, behavior: "smooth" })
+  }
+
   async function handleSubmit(e: FormEvent) {
     e.preventDefault()
 
+    const payload = {
+      customer_name: customerName,
+      customer_phone: customerPhone || null,
+      description,
+      date,
+      start_time: startTime,
+      duration,
+      worker_ids: selectedWorkerIds,
+    }
+
     try {
-      const res = await fetch("/api/appointments", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          customer_name: customerName,
-          customer_phone: customerPhone || null,
-          description,
-          date,
-          start_time: startTime,
-          duration,
-          worker_ids: selectedWorkerIds,
-        }),
-      })
+      const res = editingId
+        ? await fetch(`/api/appointments/${editingId}`, {
+            method: "PUT",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(payload),
+          })
+        : await fetch("/api/appointments", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(payload),
+          })
 
       if (res.ok) {
-        setCustomerName("")
-        setCustomerPhone("")
-        setDescription("")
-        setDate("")
-        setStartTime("")
-        setDuration(60)
-        setSelectedWorkerIds([])
+        resetForm()
         fetchData()
       } else {
         const errorData = await res.json()
-        alert(errorData.error || "Failed to create appointment")
+        alert(errorData.error || "Failed to save appointment")
       }
     } catch (error) {
-      console.error("Error creating appointment")
+      console.error("Error saving appointment")
     }
   }
 
@@ -148,7 +175,20 @@ export default function AppointmentsPage() {
 
         {/* New appointment form */}
         <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6 mb-8">
-          <h2 className="text-base font-bold text-brand-black mb-5">Naujas vizitas</h2>
+          <div className="flex items-center justify-between mb-5">
+            <h2 className="text-base font-bold text-brand-black">
+              {editingId ? "Redaguoti vizitą" : "Naujas vizitas"}
+            </h2>
+            {editingId && (
+              <button
+                type="button"
+                onClick={resetForm}
+                className="text-xs text-gray-400 hover:text-gray-600 font-medium transition-colors duration-150"
+              >
+                Atšaukti redagavimą
+              </button>
+            )}
+          </div>
 
           <form onSubmit={handleSubmit} className="space-y-4">
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -271,7 +311,7 @@ export default function AppointmentsPage() {
                 type="submit"
                 className="bg-primary hover:bg-primary-dark text-white font-bold px-6 py-2.5 rounded-lg text-sm transition-colors duration-150 shadow-sm"
               >
-                Išsaugoti vizitą
+                {editingId ? "Atnaujinti vizitą" : "Išsaugoti vizitą"}
               </button>
             </div>
           </form>
@@ -312,12 +352,20 @@ export default function AppointmentsPage() {
                       )}
                     </div>
                   </div>
-                  <button
-                    onClick={() => handleDelete(appt.id)}
-                    className="text-gray-300 hover:text-primary text-xs font-medium transition-colors duration-150 shrink-0 pt-0.5"
-                  >
-                    Ištrinti
-                  </button>
+                  <div className="flex flex-col gap-1 shrink-0 pt-0.5">
+                    <button
+                      onClick={() => handleEdit(appt)}
+                      className="text-gray-300 hover:text-brand-black text-xs font-medium transition-colors duration-150"
+                    >
+                      Redaguoti
+                    </button>
+                    <button
+                      onClick={() => handleDelete(appt.id)}
+                      className="text-gray-300 hover:text-primary text-xs font-medium transition-colors duration-150"
+                    >
+                      Ištrinti
+                    </button>
+                  </div>
                 </div>
               ))}
             </div>
