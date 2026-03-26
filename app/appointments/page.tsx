@@ -29,7 +29,12 @@ export default function AppointmentsPage() {
   const [workers, setWorkers] = useState<Worker[]>([])
   const [loading, setLoading] = useState(true)
 
+  const [searchQuery, setSearchQuery] = useState("")
+  const [filterDate, setFilterDate] = useState("")
+
   const [editingId, setEditingId] = useState<string | null>(null)
+  const [dayAppointments, setDayAppointments] = useState<Appointment[]>([])
+  const [loadingDay, setLoadingDay] = useState(false)
   const [customerName, setCustomerName] = useState("")
   const [customerPhone, setCustomerPhone] = useState("")
   const [description, setDescription] = useState("")
@@ -60,6 +65,26 @@ export default function AppointmentsPage() {
   useEffect(() => {
     fetchData()
   }, [])
+
+  useEffect(() => {
+    if (!date) {
+      setDayAppointments([])
+      return
+    }
+    async function fetchDayAppointments() {
+      setLoadingDay(true)
+      try {
+        const res = await fetch(`/api/appointments?date=${date}`)
+        const data = await res.json()
+        setDayAppointments(data)
+      } catch (error) {
+        console.error("Error fetching day appointments: ", error)
+      } finally {
+        setLoadingDay(false)
+      }
+    }
+    fetchDayAppointments()
+  }, [date])
 
   function resetForm() {
     setEditingId(null)
@@ -142,11 +167,9 @@ export default function AppointmentsPage() {
 
   function formatTime(isoString: string): string {
     const d = new Date(isoString)
-    return d.toLocaleTimeString("lt-LT", {
-      hour: "2-digit",
-      minute: "2-digit",
-      hour12: false,
-    })
+    const h = d.getUTCHours().toString().padStart(2, "0")
+    const m = d.getUTCMinutes().toString().padStart(2, "0")
+    return `${h}:${m}`
   }
 
   function formatDate(isoString: string): string {
@@ -158,6 +181,27 @@ export default function AppointmentsPage() {
       year: "numeric",
     })
   }
+
+  // Filter appointments by search text and date — all client-side, no API calls
+  const filteredAppointments = appointments.filter((appt) => {
+    // Text search: check customer name, phone, description, and worker names
+    if (searchQuery) {
+      const q = searchQuery.toLowerCase()
+      const workerNames = appt.workers.map((w) => w.worker.name).join(" ").toLowerCase()
+      const match =
+        appt.customer_name.toLowerCase().includes(q) ||
+        (appt.customer_phone && appt.customer_phone.toLowerCase().includes(q)) ||
+        appt.description.toLowerCase().includes(q) ||
+        workerNames.includes(q)
+      if (!match) return false
+    }
+    // Date filter: compare the appointment date with the selected filter date
+    if (filterDate) {
+      const apptDate = new Date(appt.date).toISOString().split("T")[0]
+      if (apptDate !== filterDate) return false
+    }
+    return true
+  })
 
   const inputClass =
     "w-full border border-gray-200 rounded-lg px-4 py-2.5 text-sm text-brand-black placeholder-gray-400 bg-white transition"
@@ -263,6 +307,40 @@ export default function AppointmentsPage() {
               </div>
             </div>
 
+            {date && (
+              <div className="bg-brand-gray rounded-xl border border-gray-100 px-4 py-3">
+                <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">
+                  Vizitai šią dieną{" "}
+                  {!loadingDay && <span className="text-gray-400">({dayAppointments.length})</span>}
+                </p>
+                {loadingDay ? (
+                  <p className="text-xs text-gray-400">Kraunama...</p>
+                ) : dayAppointments.length === 0 ? (
+                  <p className="text-xs text-gray-400">Nėra vizitų šią dieną</p>
+                ) : (
+                  <div className="space-y-1.5">
+                    {dayAppointments.map((appt) => (
+                      <div key={appt.id} className="flex items-center gap-2 text-xs">
+                        <span className="w-1.5 h-1.5 rounded-full bg-primary shrink-0" />
+                        <span className="font-semibold text-brand-black">
+                          {formatTime(appt.start_time)} –{" "}
+                          {(() => {
+                            const start = new Date(appt.start_time)
+                            const end = new Date(start.getTime() + appt.duration * 60000)
+                            return `${end.getUTCHours().toString().padStart(2, "0")}:${end.getUTCMinutes().toString().padStart(2, "0")}`
+                          })()}
+                        </span>
+                        <span className="text-gray-500">{appt.customer_name}</span>
+                        {appt.workers.length > 0 && (
+                          <span className="text-gray-400">· {appt.workers.map((w) => w.worker.name).join(", ")}</span>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
+
             <div>
               <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1.5">
                 Aprašymas *
@@ -321,18 +399,43 @@ export default function AppointmentsPage() {
         <div>
           <h2 className="text-base font-bold text-brand-black mb-4">
             Vizitų sąrašas
-            <span className="ml-2 text-sm font-semibold text-gray-400">({appointments.length})</span>
+            <span className="ml-2 text-sm font-semibold text-gray-400">({filteredAppointments.length})</span>
           </h2>
+
+          {/* Search & date filter */}
+          <div className="flex gap-3 mb-4">
+            <input
+              type="text"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              placeholder="Ieškoti pagal vardą, telefoną, aprašymą..."
+              className={`${inputClass} w-auto`}
+            />
+            <input
+              type="date"
+              value={filterDate}
+              onChange={(e) => setFilterDate(e.target.value)}
+              className={`${inputClass} w-auto`}
+            />
+            {(searchQuery || filterDate) && (
+              <button
+                onClick={() => { setSearchQuery(""); setFilterDate("") }}
+                className="text-xs text-gray-400 hover:text-gray-600 font-medium transition-colors duration-150 shrink-0"
+              >
+                Išvalyti
+              </button>
+            )}
+          </div>
 
           {loading ? (
             <div className="text-center text-gray-400 text-sm py-8">Kraunama...</div>
-          ) : appointments.length === 0 ? (
+          ) : filteredAppointments.length === 0 ? (
             <div className="bg-white rounded-2xl border border-gray-100 px-6 py-10 text-center text-gray-400 text-sm shadow-sm">
-              Vizitų nerasta. Sukurkite pirmąjį.
+              {appointments.length === 0 ? "Vizitų nerasta. Sukurkite pirmąjį." : "Vizitų pagal filtrus nerasta."}
             </div>
           ) : (
             <div className="space-y-3">
-              {appointments.map((appt) => (
+              {filteredAppointments.map((appt) => (
                 <div
                   key={appt.id}
                   className="bg-white rounded-2xl shadow-sm border border-gray-100 px-5 py-4 flex justify-between items-start gap-4 hover:shadow-md transition-shadow duration-150"
