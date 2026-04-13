@@ -49,6 +49,7 @@ export default function AppointmentBlock({
 
   return (
     <div
+      data-appointment
       className="absolute bg-primary hover:bg-primary-dark text-white rounded-lg px-2 py-1 text-xs cursor-pointer overflow-hidden shadow-sm transition-colors duration-150"
       style={{
         top: topOffset,

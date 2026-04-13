@@ -275,6 +275,7 @@ export default function AppointmentsPage() {
                   onChange={(e) => setDate(e.target.value)}
                   required
                   className={inputClass}
+                  
                 />
               </div>
 

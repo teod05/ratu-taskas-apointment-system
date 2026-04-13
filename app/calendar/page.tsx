@@ -7,6 +7,7 @@ import { createClient } from "@/lib/supabase/client"
 import Navbar from "@/components/Navbar"
 import AppointmentBlock from "@/components/AppointmentBlock"
 import AppointmentDetailModal from "@/components/AppointmentDetailModal"
+import CreateAppointmentModal from "@/components/CreateAppointmentModal"
 
 interface Worker {
   id: number
@@ -80,6 +81,7 @@ export default function CalendarPage() {
   const [appointments, setAppointments] = useState<Appointment[]>([])
   const [loading, setLoading] = useState(false)
   const [selected, setSelected] = useState<Appointment | null>(null)
+  const [createModal, setCreateModal] = useState<{ date: string; startTime: string } | null>(null)
 
   const weekDays = getWeekDays(weekStart)
   const weekEnd = weekDays[6]
@@ -134,6 +136,22 @@ export default function CalendarPage() {
 
   function goToToday() {
     setWeekStart(getWeekStart(new Date()))
+  }
+
+  function handleGridClick(day: Date, e: React.MouseEvent<HTMLDivElement>) {
+    // Only fire when clicking empty space, not appointment blocks
+    if ((e.target as HTMLElement).closest("[data-appointment]")) return
+
+    const rect = e.currentTarget.getBoundingClientRect()
+    const y = e.clientY - rect.top
+    const totalMinutes = HOUR_START * 60 + (y / PX_PER_HOUR) * 60
+    // Snap to nearest 15 minutes
+    const snapped = Math.round(totalMinutes / 15) * 15
+    const hours = Math.floor(snapped / 60)
+    const mins = snapped % 60
+    const timeStr = `${String(hours).padStart(2, "0")}:${String(mins).padStart(2, "0")}`
+
+    setCreateModal({ date: toDateString(day), startTime: timeStr })
   }
 
   const hourLabels = Array.from({ length: TOTAL_HOURS + 1 }, (_, i) => {
@@ -226,6 +244,7 @@ export default function CalendarPage() {
                 <div
                   key={label}
                   className="absolute w-full text-right pr-2 text-[10px] text-gray-700 font-medium"
+                  className="absolute w-full text-right pr-2 text-[10px] text-gray-400 font-medium"
                   style={{ top: i * PX_PER_HOUR - 7 }}
                 >
                   {label}
@@ -240,16 +259,17 @@ export default function CalendarPage() {
               return (
                 <div
                   key={di}
-                  className={`relative border-r border-gray-100 last:border-r-0 ${
+                  className={`relative border-r border-gray-100 last:border-r-0 cursor-pointer ${
                     isToday ? "bg-red-50/30" : ""
                   }`}
                   style={{ height: TOTAL_HEIGHT }}
+                  onClick={(e) => handleGridClick(day, e)}
                 >
                   {/* Hour lines */}
                   {hourLabels.map((_, i) => (
                     <div
                       key={i}
-                      className="absolute w-full border-t border-gray-100"
+                      className="absolute w-full border-t border-gray-200"
                       style={{ top: i * PX_PER_HOUR }}
                     />
                   ))}
@@ -258,7 +278,7 @@ export default function CalendarPage() {
                   {hourLabels.slice(0, -1).map((_, i) => (
                     <div
                       key={`half-${i}`}
-                      className="absolute w-full border-t border-gray-50"
+                      className="absolute w-full border-t border-gray-100"
                       style={{ top: i * PX_PER_HOUR + PX_PER_HOUR / 2 }}
                     />
                   ))}
@@ -293,7 +313,22 @@ export default function CalendarPage() {
         <AppointmentDetailModal
           appointment={selected}
           onClose={() => setSelected(null)}
+          onDelete={async (id) => {
+            await fetch(`/api/appointments/${id}`, { method: "DELETE" })
+            setSelected(null)
+            fetchAppointments()
+          }}
         />
+
+        {/* Create modal */}
+        {createModal && (
+          <CreateAppointmentModal
+            date={createModal.date}
+            startTime={createModal.startTime}
+            onClose={() => setCreateModal(null)}
+            onCreated={() => fetchAppointments()}
+          />
+        )}
       </main>
     </div>
   )
