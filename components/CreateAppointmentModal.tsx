@@ -20,7 +20,7 @@ export default function CreateAppointmentModal({ date, startTime, onClose, onCre
   const [customerPhone, setCustomerPhone] = useState("")
   const [description, setDescription] = useState("")
   const [time, setTime] = useState(startTime)
-  const [duration, setDuration] = useState(60)
+  const [duration, setDuration] = useState(30)
   const [selectedWorkerIds, setSelectedWorkerIds] = useState<number[]>([])
   const [saving, setSaving] = useState(false)
 
