@@ -244,7 +244,6 @@ export default function CalendarPage() {
                 <div
                   key={label}
                   className="absolute w-full text-right pr-2 text-[10px] text-gray-700 font-medium"
-                  className="absolute w-full text-right pr-2 text-[10px] text-gray-400 font-medium"
                   style={{ top: i * PX_PER_HOUR - 7 }}
                 >
                   {label}
