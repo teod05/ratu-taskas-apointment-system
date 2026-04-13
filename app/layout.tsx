@@ -9,8 +9,8 @@ const inter = Inter({
 });
 
 export const metadata: Metadata = {
-  title: "Ratų Taškas — Padangų Servisas",
-  description: "Ratų Taškas tire service booking system",
+  title: "Ratų Taško Kalendorius",
+  description: "Ratų Taško Kalendorius",
 };
 
 export default function RootLayout({
