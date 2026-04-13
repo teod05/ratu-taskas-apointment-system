@@ -26,9 +26,10 @@ interface Appointment {
 interface Props {
   appointment: Appointment | null
   onClose: () => void
+  onDelete?: (id: string) => void
 }
 
-export default function AppointmentDetailModal({ appointment, onClose }: Props) {
+export default function AppointmentDetailModal({ appointment, onClose, onDelete }: Props) {
   if (!appointment) return null
 
   const startMins = timeToMinutes(appointment.start_time)
@@ -84,12 +85,26 @@ export default function AppointmentDetailModal({ appointment, onClose }: Props) 
             )}
           </dl>
 
-          <button
-            className="mt-6 w-full bg-brand-gray hover:bg-gray-200 text-brand-black rounded-xl py-2.5 text-sm font-bold transition-colors duration-150"
-            onClick={onClose}
-          >
-            Uždaryti
-          </button>
+          <div className="mt-6 flex gap-3">
+            {onDelete && (
+              <button
+                className="flex-1 bg-red-50 hover:bg-red-100 text-red-600 rounded-xl py-2.5 text-sm font-bold transition-colors duration-150"
+                onClick={() => {
+                  if (window.confirm("Ar tikrai norite ištrinti šį vizitą?")) {
+                    onDelete(appointment.id)
+                  }
+                }}
+              >
+                Ištrinti
+              </button>
+            )}
+            <button
+              className="flex-1 bg-brand-gray hover:bg-gray-200 text-brand-black rounded-xl py-2.5 text-sm font-bold transition-colors duration-150"
+              onClick={onClose}
+            >
+              Uždaryti
+            </button>
+          </div>
         </div>
       </div>
     </div>
