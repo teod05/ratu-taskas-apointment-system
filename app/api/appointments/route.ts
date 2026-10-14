@@ -1,5 +1,4 @@
 import { NextRequest, NextResponse } from "next/server";
-import { Prisma } from "@prisma/client";
 // import { useSearchParams } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 
@@ -15,7 +14,7 @@ export async function GET(request: NextRequest){
         const startDate = searchParams.get("startDate")
         const endDate = searchParams.get("endDate")
 
-        let where : any = {}
+        const where: { date?: Date | { gte: Date; lte: Date } } = {}
 
         if(dateParam) {
             const targetDate = new Date(dateParam)
@@ -86,26 +85,6 @@ export async function GET(request: NextRequest){
             const [startHours, startMinutes] = start_time.split(':').map(Number)
             const startMinutesTotal = startHours * 60 + startMinutes
             const endMinutesTotal = startMinutesTotal + duration
-
-            const overlapping = await prisma.appointment.findFirst({
-                where: {
-                    date: appointmentDate,
-                    OR: [
-                        // Check if any existing appointment overlaps with the new one
-                        {
-                            AND: [
-                                {
-                                    start_time: {
-                                        lte: appointmentStartTime
-                                    }
-                                },
-                                // Compute end time: start_time + duration minutes
-                                // We need to use raw SQL for this check
-                            ]
-                        }
-                    ]
-                }
-            })
 
             // Use raw query for proper overlap detection
             const overlapCheck = await prisma.$queryRaw<Array<{ id: number }>>`
