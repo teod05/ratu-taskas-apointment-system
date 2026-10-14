@@ -82,6 +82,50 @@ export async function GET(request: NextRequest){
             const appointmentDate = new Date(date)
             const appointmentStartTime = new Date(`1970-01-01T${start_time}:00Z`)
 
+            // Check for overlapping appointments
+            const [startHours, startMinutes] = start_time.split(':').map(Number)
+            const startMinutesTotal = startHours * 60 + startMinutes
+            const endMinutesTotal = startMinutesTotal + duration
+
+            const overlapping = await prisma.appointment.findFirst({
+                where: {
+                    date: appointmentDate,
+                    OR: [
+                        // Check if any existing appointment overlaps with the new one
+                        {
+                            AND: [
+                                {
+                                    start_time: {
+                                        lte: appointmentStartTime
+                                    }
+                                },
+                                // Compute end time: start_time + duration minutes
+                                // We need to use raw SQL for this check
+                            ]
+                        }
+                    ]
+                }
+            })
+
+            // Use raw query for proper overlap detection
+            const overlapCheck = await prisma.$queryRaw<Array<{ id: number }>>`
+                SELECT id FROM "public"."Appointment"
+                WHERE "date" = ${appointmentDate}::date
+                AND (
+                    EXTRACT(HOUR FROM "start_time") * 60 + EXTRACT(MINUTE FROM "start_time")
+                ) < ${endMinutesTotal}
+                AND (
+                    EXTRACT(HOUR FROM "start_time") * 60 + EXTRACT(MINUTE FROM "start_time") + "duration"
+                ) > ${startMinutesTotal}
+            `
+
+            if (overlapCheck.length > 0) {
+                return NextResponse.json(
+                    { error: "This time slot is already booked. Please choose a different time." },
+                    { status: 409 }
+                )
+            }
+
             const appointment = await prisma.appointment.create({
                 data: {
                     customer_name,

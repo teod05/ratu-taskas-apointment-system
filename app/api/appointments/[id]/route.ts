@@ -44,6 +44,30 @@ export async function PUT(
         const appointmentDate = new Date(date)
         const appointmentStartTime = new Date(`1970-01-01T${start_time}:00Z`)
 
+        // Check for overlapping appointments (excluding the current one being updated)
+        const [startHours, startMinutes] = start_time.split(':').map(Number)
+        const startMinutesTotal = startHours * 60 + startMinutes
+        const endMinutesTotal = startMinutesTotal + duration
+
+        const overlapCheck = await prisma.$queryRaw<Array<{ id: number }>>`
+            SELECT id FROM "public"."Appointment"
+            WHERE "id" != ${appointmentId}
+            AND "date" = ${appointmentDate}::date
+            AND (
+                EXTRACT(HOUR FROM "start_time") * 60 + EXTRACT(MINUTE FROM "start_time")
+            ) < ${endMinutesTotal}
+            AND (
+                EXTRACT(HOUR FROM "start_time") * 60 + EXTRACT(MINUTE FROM "start_time") + "duration"
+            ) > ${startMinutesTotal}
+        `
+
+        if (overlapCheck.length > 0) {
+            return NextResponse.json(
+                { error: "This time slot is already booked. Please choose a different time." },
+                { status: 409 }
+            )
+        }
+
         const appointment = await prisma.$transaction(async (tx) => {
             await tx.appointmentWorker.deleteMany({
                 where: { appointment_id: appointmentId },
